@@ -7,3 +7,5 @@ Being a fan of a film on Letterboxd means it is one of the four "Favorite Films"
 Congregates all this information into an unsorted CSV file.
 
 With the CSV file, I went into Excel and manually sorted the films by percent fans out of watched. That file can be viewed <a href = "https://docs.google.com/spreadsheets/d/1S3puCkyzj7PQp9E-Bo2J0EwYFqAe4OU0B-bdNMujdhA/edit?usp=sharing">here</a>.
+
+I used Selenium and PhantomJS to scrape the JavaScript-heavy pages of Letterboxd.
