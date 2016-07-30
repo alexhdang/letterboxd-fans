@@ -1,4 +1,3 @@
-#import json
 import requests
 import csv
 import urllib
@@ -6,8 +5,8 @@ import time
 import re
 from selenium import webdriver
 from datetime import date
-from bs4 import BeautifulSoup
 
+# Sets output file name to current date and time
 OUTPUT_FILE = 'fans_' + time.strftime("%m-%d-%Y") + '_' + time.strftime("%H-%M-%S") + '.csv'
 
 ### Gathers urls of films from first 5 pages of most popular
@@ -38,10 +37,12 @@ def get_urls2(page):
 	print(urls[0:3])
 	return urls
 
+### Reads title, year, # watched, and # fans from url.
+### Also calculates percentage fans out of watched.
 def get_info(url):
 	driver = webdriver.PhantomJS()
 	driver.get(url) 
-	time.sleep(3)
+	time.sleep(2)
 	try:
 		title = driver.find_element_by_class_name('film-title').text
 		year = int(driver.find_element_by_xpath(
@@ -66,7 +67,7 @@ def get_info(url):
 		fans = 0
 		
 	driver.close()
-	if watched != 0: 
+	if watched != 0: 	# covers division by zero case
 		percent = fans / watched
 	else:
 		percent = 0
@@ -80,13 +81,16 @@ for page in range(1, 6):
 	urls1 += get_urls1(page)
 for page in range(1, 6):
 	urls2 += get_urls2(page)
-urls = list(set(urls1+urls2))	# removes duplicates
+urls = list(set(urls1+urls2))	# collects all urls and removes duplicates
 print("Number of films:", len(urls))
 film_info = {}
 with open(OUTPUT_FILE, 'w', newline='') as outfile:
 	filmout = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
+	# Sets column headers for csv file
 	filmout.writerow(['URL', 'Title', 'Year', 'Fans', 'Watched', '% Fans out of Watched'])
 	for url in urls:
 		info = get_info(url)
+		# Writes to csv if percent fans out of watched is at least 1%,
+		# or if # watched is 0 (which is checked manually)
 		if info[4] >= 0.01 or info[3] == 0:
 			filmout.writerow([url] + info)
