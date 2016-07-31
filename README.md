@@ -6,6 +6,6 @@ Then, scrapes each URL to find number of fans and number of people who watched e
 Being a fan of a film on Letterboxd means it is one of the four "Favorite Films" on a user's profile, as can be seen <a href = "http://letterboxd.com/alda/">here on my profile</a>.
 Congregates all this information into an unsorted CSV file.
 
-With the CSV file, I went into Excel and manually sorted the films by percent fans out of watched. That file can be viewed <a href = "https://docs.google.com/spreadsheets/d/1S3puCkyzj7PQp9E-Bo2J0EwYFqAe4OU0B-bdNMujdhA/edit?usp=sharing">here</a>.
+With the CSV file, I went into Excel and manually sorted the films by percent fans out of watched. That file can be viewed <a href = "https://docs.google.com/spreadsheets/d/1uAvvD6t5Kl_w8uZs47fj9abIOpcKBO4aQhLUbP19inU/edit?usp=sharing">here</a>.
 
 I used Selenium and PhantomJS to scrape the JavaScript-heavy pages of Letterboxd.
