@@ -22,7 +22,7 @@ def get_urls1(page):
 	urls = []
 	driver = webdriver.PhantomJS()
 	driver.get('http://letterboxd.com/films/popular/page/' + str(page) + '/') 
-	time.sleep(2)
+	#time.sleep(2)
 	elements = driver.find_elements_by_class_name('frame')
 	for element in elements:
 		urls.append(element.get_attribute("href"))
@@ -36,7 +36,7 @@ def get_urls2(page):
 	urls = []
 	driver = webdriver.PhantomJS()
 	driver.get('http://letterboxd.com/films/by/rating/page/' + str(page) + '/') 
-	time.sleep(2)
+	#time.sleep(2)
 	elements = driver.find_elements_by_class_name('frame')
 	for element in elements:
 		urls.append(element.get_attribute("href"))
@@ -75,18 +75,18 @@ def get_info(url):
 		year = "1964"
 		director = "Michael Apted"
 		runtime = "769"
-	if url == "http://letterboxd.com/film/flcl/"
+	if url == "http://letterboxd.com/film/flcl/":
 		director = "Kazuya Tsurumaki"
-	if url == "http://letterboxd.com/film/scenes-from-a-marriage/"
+	if url == "http://letterboxd.com/film/scenes-from-a-marriage/":
 		director = "Ingmar Bergman"
-	if url == "http://letterboxd.com/film/berlin-alexanderplatz/"
+	if url == "http://letterboxd.com/film/berlin-alexanderplatz/":
 		director = "Rainer Werner Fassbinder"
-	if url == "http://letterboxd.com/film/the-decalogue/"
+	if url == "http://letterboxd.com/film/the-decalogue/":
 		title = "The Decalogue"
 		year = "1989"
 		director = "Krzysztof Kieslowski"
 		runtime = "572"
-	if url == "http://letterboxd.com/film/kill-bill-the-whole-bloody-affair/"
+	if url == "http://letterboxd.com/film/kill-bill-the-whole-bloody-affair/":
 		title = "Kill Bill: The Whole Bloody Affair"
 		year = "2009"
 		director = "Quentin Tarantino"
@@ -95,7 +95,7 @@ def get_info(url):
 	# Next, grab number of fans and watched from Letterboxd page
 	driver = webdriver.PhantomJS()
 	driver.get(url) 
-	time.sleep(1.5)
+	#time.sleep(1.5)
 	try:
 		watched_text = driver.find_element_by_xpath(
 			'//*[@id="film-page-wrapper"]/div[2]/aside/section[3]/p/a[1]').text
@@ -118,7 +118,7 @@ def get_info(url):
 	driver.close()
 	
 	if watched != 0: 	# covers division by zero case
-		percent = fans / watched
+		percent = fans / watched * 100
 	else:
 		percent = 0
 	#print(url, title, fans, watched, percent)
@@ -137,7 +137,7 @@ film_info = {}
 with open(OUTPUT_FILE, 'w', newline='') as outfile:
 	filmout = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
 	# Sets column headers for csv file
-	filmout.writerow(['Title', 'Year', 'Directors', 'Runtime',
+	filmout.writerow(['Title', 'Year', 'Director(s)', 'Runtime',
 						'Fans', 'Watched', '% Fans out of Watched', 'URL'])
 	i = 0
 	for url in urls:
@@ -146,6 +146,6 @@ with open(OUTPUT_FILE, 'w', newline='') as outfile:
 		info = get_info(url)
 		# Writes to csv if percent fans out of watched is at least 1%,
 		# or if # watched is 0 (which is checked manually)
-		if info[6] >= 0.01 or info[5] == 0:
+		if info[6] >= 1.0 or info[5] == 0:
 			filmout.writerow(info + [url])
 		i += 1
