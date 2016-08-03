@@ -113,7 +113,7 @@ def get_info(url):
 		dummy = re.findall('\d+', fans_text.replace(',', ''))
 		fans = int(dummy[0])
 	except:
-		print("Error in finding number of fans for " + url)
+		#print("Error in finding number of fans for " + url)
 		fans = 0
 	driver.close()
 	
