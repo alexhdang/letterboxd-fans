@@ -4,84 +4,48 @@
 # people who watched it who is a fan of it. Throws all film info into
 # an unsorted csv, which is then imported into Excel and sorted there.
 
-# letterboxd.com/films/ajax/by/rating/size/small/page/1/
-# letterboxd.com/csi/film/the-godfather/sidebar-viewings/
+# http://letterboxd.com/films/ajax/by/rating/size/small/page/1/
+# http://letterboxd.com/csi/film/the-godfather/sidebar-viewings/
 
 import requests
 import csv
 import urllib
 import time
 import re
-import json
 import operator
-#from selenium import webdriver
 from datetime import date
 from bs4 import BeautifulSoup
+from unidecode import unidecode
 
 # Sets output file name to current date and time
 OUTPUT_FILE = 'fans_' + time.strftime("%m-%d-%Y") + '_' + time.strftime("%H-%M-%S") + '.csv'
+PAGE_COUNT = 5
 
 ### Gathers urls of films from first 5 pages of most popular and highest rated
 def get_urls(page, page_num):
     urls = []
-    driver = webdriver.PhantomJS()
-    driver.get(page + str(page_num) + '/')
-    #time.sleep(2)
-    elements = driver.find_elements_by_class_name('frame')
-    for element in elements:
-        urls.append(element.get_attribute("href"))
+    r = requests.get(page + str(page_num) + '/')
+    soup = BeautifulSoup(r.text, 'html.parser')
+    for link in soup.find("ul").find_all('a'):
+        urls.append("http://letterboxd.com" + link.get('href'))
     print(str(len(urls))+' films found on '+page+str(page_num))
     print(urls[0:3])
-    driver.close()
     return urls
 
 ### Gathers film info using OMDb and scrapes number of watched and fans.
 ### Also calculates percentage fans out of watched.
 def get_info(url):
 
-    # First scrape for IMDb id and grab film info using json request of OMDb.
-    r = urllib.request.urlopen(url)
-    r_soup = BeautifulSoup(r, 'html.parser')
-    s = r_soup.find("p", "text-link").find_all('a')[0]
-    link = s.get('href')
-    filmid = link.split('/')[4]
+    # First scrape for film info from Letterboxd page.
+    r = requests.get(url)
+    soup = BeautifulSoup(r.text, 'html.parser')
 
-    r = requests.get('http://www.omdbapi.com/?i=' + filmid).json()
-    try:
-        title = r['Title']
-        year = r['Year']
-        if r['Runtime'] == 'N/A':
-            runtime = ''
-        else:
-            runtime = r['Runtime'][:-4]
-        director = r['Director'].split(', ') # Extract up to two directors
-        director = ', '.join(director[:2])
-    except:
-        print("Error in finding info for " + url)
-        title, year, runtime, director = "", "", "", ""
-
-    # Special cases
-    if url == "http://letterboxd.com/film/the-up-series/":
-        title = "The Up Series"
-        year = "1964"
-        director = "Michael Apted"
-        runtime = "769"
-    if url == "http://letterboxd.com/film/flcl/":
-        director = "Kazuya Tsurumaki"
-    if url == "http://letterboxd.com/film/scenes-from-a-marriage/":
-        director = "Ingmar Bergman"
-    if url == "http://letterboxd.com/film/berlin-alexanderplatz/":
-        director = "Rainer Werner Fassbinder"
-    if url == "http://letterboxd.com/film/the-decalogue/":
-        title = "The Decalogue"
-        year = "1989"
-        director = "Krzysztof Kieslowski"
-        runtime = "572"
-    if url == "http://letterboxd.com/film/kill-bill-the-whole-bloody-affair/":
-        title = "Kill Bill: The Whole Bloody Affair"
-        year = "2009"
-        director = "Quentin Tarantino"
-        runtime = "243"
+    # Use unidecode to handle annoying unicode issues with foreign words.
+    title = unidecode(soup.find("h1", itemprop = "name").text)
+    year = soup.find(itemprop = "datePublished").text
+    director = unidecode(soup.find("span", itemprop = "name").text)
+    runtime_text = soup.find("p", "text-footer").text
+    runtime = int(re.search('\d+', runtime_text).group())
 
     # Next, grab number of fans and watched from Letterboxd page
     lbd_url = url.split('/')[4]
@@ -112,17 +76,19 @@ def get_info(url):
     else:
         percent = 0
     #print(url, title, fans, watched, percent)
-    return [title, year, director, runtime, fans, watched, percent]
-
-def main():
+    return [title, year, director, 
+            runtime, fans, watched, percent]
+    
+### Writes film info to csv and returns number of films processed.
+def write_to_csv():
     print('WRITING TO ' + OUTPUT_FILE)
     urls1 = []
     urls2 = []
-    pages = ['http://letterboxd.com/films/popular/page/',
-             'http://letterboxd.com/films/by/rating/page/']
-    for page in range(1, 6):
-        urls1 += get_urls(pages[0], page)
-        urls2 += get_urls(pages[1], page)
+    pages = ['http://letterboxd.com/films/ajax/popular/size/small/page/',
+             'http://letterboxd.com/films/ajax/by/rating/size/small/page/']
+    for i in range(1, PAGE_COUNT + 1):
+        urls1 += get_urls(pages[0], i)
+        urls2 += get_urls(pages[1], i)
     urls = list(set(urls1+urls2)) # collects all urls and removes duplicates
     print("Number of films:", len(urls))
     film_info = {}
@@ -138,7 +104,10 @@ def main():
             if info[6] >= 1.0 or info[5] == 0:
                 filmout.writerow(info + [url])
             i += 1
+    return len(urls)
 
+### Sorts csv by percentage of fans out of total watched.
+def sort_csv():
     data = csv.reader(open(OUTPUT_FILE), delimiter=',')
     sortedlist = sorted(data, key=operator.itemgetter(6), reverse=True)
     #print(sortedlist[0:5])
@@ -148,6 +117,15 @@ def main():
         writer.writerow(['Title', 'Year', 'Director(s)', 'Runtime',
                          'Fans', 'Watched', '% Fans out of Watched', 'URL'])
         writer.writerows(sortedlist)
+
+def main():
+    start = time.time()
+    len = write_to_csv()
+    sort_csv()
+    end = time.time()
+    total_time = end - start
+    print("Execution took %f seconds, which is %f seconds per film."
+          % (total_time, total_time/len))
 
 if __name__ == '__main__':
     main()
