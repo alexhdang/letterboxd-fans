@@ -9,7 +9,7 @@
 
 import requests
 import csv
-import urllib
+#import urllib
 import time
 import re
 import operator
@@ -19,7 +19,9 @@ from unidecode import unidecode
 
 # Sets output file name to current date and time
 OUTPUT_FILE = 'fans_' + time.strftime("%m-%d-%Y") + '_' + time.strftime("%H-%M-%S") + '.csv'
-PAGE_COUNT = 5
+PAGE_COUNT = 1
+PAGES = ['http://letterboxd.com/films/ajax/popular/size/small/page/',
+         'http://letterboxd.com/films/ajax/by/rating/size/small/page/']
 
 ### Gathers urls of films from first 5 pages of most popular and highest rated
 def get_urls(page, page_num):
@@ -29,7 +31,8 @@ def get_urls(page, page_num):
     for link in soup.find("ul").find_all('a'):
         urls.append("http://letterboxd.com" + link.get('href'))
     print(str(len(urls))+' films found on '+page+str(page_num))
-    print(urls[0:3])
+    #print(urls[0:3])
+    r.close()
     return urls
 
 ### Gathers film info using OMDb and scrapes number of watched and fans.
@@ -41,17 +44,44 @@ def get_info(url):
     soup = BeautifulSoup(r.text, 'html.parser')
 
     # Use unidecode to handle annoying unicode issues with foreign words.
-    title = unidecode(soup.find("h1", itemprop = "name").text)
-    year = soup.find(itemprop = "datePublished").text
-    director = unidecode(soup.find("span", itemprop = "name").text)
-    runtime_text = soup.find("p", "text-footer").text
-    runtime = int(re.search('\d+', runtime_text).group())
+    try:
+        title = unidecode(soup.find("h1", itemprop = "name").text)
+        year = soup.find(itemprop = "datePublished").text
+        directors = soup.find_all("a", itemprop = "director")
+        if len(directors) > 1: # if multiple directors found
+            d = []
+            for director in directors:
+                d.append(unidecode(director.text))
+            # gets directors and concatenates them into one string
+            director = ', '.join(d) 
+        else:
+            director = unidecode(directors[0].text)
+        runtime_text = soup.find("p", "text-footer").text
+        runtime = int(re.search('\d+', runtime_text).group())
+    except:
+        print("Error in finding film info for " + url)
+        title = ""
+        year = "0"
+        director = ""
+        runtime = 0
+        
+    r.close()
+    
+    # Special cases
+    if url == "http://letterboxd.com/film/the-up-series/":
+        title = "The Up Series"
+        year = "1964"
+        director = "Michael Apted"
+        runtime = "769"
+    if "Joel Coen" in director:
+        director = "Joel Coen, Ethan Coen"
 
     # Next, grab number of fans and watched from Letterboxd page
     lbd_url = url.split('/')[4]
-    r = urllib.request.urlopen("http://letterboxd.com/csi/film/" + lbd_url + "/sidebar-viewings/")
-    r_soup = BeautifulSoup(r, 'html.parser')
+    r = requests.get("http://letterboxd.com/csi/film/" + lbd_url + "/sidebar-viewings/")
+    r_soup = BeautifulSoup(r.text, 'html.parser')
     s = r_soup.find_all('a')
+    r.close()
 
     try:
         watched_text = s[0].text
@@ -76,19 +106,16 @@ def get_info(url):
     else:
         percent = 0
     #print(url, title, fans, watched, percent)
-    return [title, year, director, 
-            runtime, fans, watched, percent]
+    return [title, year, director, runtime, fans, watched, percent]
     
 ### Writes film info to csv and returns number of films processed.
 def write_to_csv():
     print('WRITING TO ' + OUTPUT_FILE)
     urls1 = []
     urls2 = []
-    pages = ['http://letterboxd.com/films/ajax/popular/size/small/page/',
-             'http://letterboxd.com/films/ajax/by/rating/size/small/page/']
     for i in range(1, PAGE_COUNT + 1):
-        urls1 += get_urls(pages[0], i)
-        urls2 += get_urls(pages[1], i)
+        urls1 += get_urls(PAGES[0], i)
+        urls2 += get_urls(PAGES[1], i)
     urls = list(set(urls1+urls2)) # collects all urls and removes duplicates
     print("Number of films:", len(urls))
     film_info = {}
