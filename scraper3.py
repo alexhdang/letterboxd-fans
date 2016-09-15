@@ -4,12 +4,8 @@
 # people who watched it who is a fan of it. Throws all film info into
 # an unsorted csv, which is then imported into Excel and sorted there.
 
-# http://letterboxd.com/films/ajax/by/rating/size/small/page/1/
-# http://letterboxd.com/csi/film/the-godfather/sidebar-viewings/
-
 import requests
 import csv
-#import urllib
 import time
 import re
 import operator
@@ -19,7 +15,8 @@ from unidecode import unidecode
 
 # Sets output file name to current date and time
 OUTPUT_FILE = 'fans_' + time.strftime("%m-%d-%Y") + '_' + time.strftime("%H-%M-%S") + '.csv'
-PAGE_COUNT = 1
+IMPORT_FILE = OUTPUT_FILE[:-4] + '_import' + OUTPUT_FILE[-4:]
+PAGE_COUNT = 10
 PAGES = ['http://letterboxd.com/films/ajax/popular/size/small/page/',
          'http://letterboxd.com/films/ajax/by/rating/size/small/page/']
 
@@ -31,7 +28,6 @@ def get_urls(page, page_num):
     for link in soup.find("ul").find_all('a'):
         urls.append("http://letterboxd.com" + link.get('href'))
     print(str(len(urls))+' films found on '+page+str(page_num))
-    #print(urls[0:3])
     r.close()
     return urls
 
@@ -40,13 +36,13 @@ def get_urls(page, page_num):
 def get_info(url):
 
     # First scrape for film info from Letterboxd page.
-    r = requests.get(url)
+    r = requests.get(url, allow_redirects=False)
     soup = BeautifulSoup(r.text, 'html.parser')
 
     # Use unidecode to handle annoying unicode issues with foreign words.
     try:
         title = unidecode(soup.find("h1", itemprop = "name").text)
-        year = soup.find(itemprop = "datePublished").text
+        year = int(soup.find(itemprop = "datePublished").text)
         directors = soup.find_all("a", itemprop = "director")
         if len(directors) > 1: # if multiple directors found
             d = []
@@ -58,21 +54,23 @@ def get_info(url):
             director = unidecode(directors[0].text)
         runtime_text = soup.find("p", "text-footer").text
         runtime = int(re.search('\d+', runtime_text).group())
+        tmdb = int(soup.body['data-tmdb-id'])
     except:
         print("Error in finding film info for " + url)
         title = ""
-        year = "0"
+        year = 0
         director = ""
         runtime = 0
+        tmdb = 0
         
     r.close()
     
     # Special cases
     if url == "http://letterboxd.com/film/the-up-series/":
         title = "The Up Series"
-        year = "1964"
+        year = 1964
         director = "Michael Apted"
-        runtime = "769"
+        runtime = 769
     if "Joel Coen" in director:
         director = "Joel Coen, Ethan Coen"
 
@@ -98,15 +96,13 @@ def get_info(url):
         dummy = re.findall('\d+', fans_text.replace(',', ''))
         fans = int(dummy[0])
     except:
-        #print("Error in finding number of fans for " + url)
         fans = 0
 
     if watched != 0:    # covers division by zero case
         percent = fans / watched * 100
     else:
         percent = 0
-    #print(url, title, fans, watched, percent)
-    return [title, year, director, runtime, fans, watched, percent]
+    return [title, year, director, runtime, fans, watched, percent, tmdb]
     
 ### Writes film info to csv and returns number of films processed.
 def write_to_csv():
@@ -123,7 +119,7 @@ def write_to_csv():
         filmout = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
         i = 0
         for url in urls:
-            if i % 20 == 0:
+            if i % 50 == 0:
                 print(str(i) + " films processed.")
             info = get_info(url)
             # Writes to csv if percent fans out of watched is at least 1%,
@@ -137,18 +133,29 @@ def write_to_csv():
 def sort_csv():
     data = csv.reader(open(OUTPUT_FILE), delimiter=',')
     sortedlist = sorted(data, key=operator.itemgetter(6), reverse=True)
-    #print(sortedlist[0:5])
     with open(OUTPUT_FILE, "w", newline='') as outfile:
         writer = csv.writer(outfile)
         # Sets column headers for csv file
-        writer.writerow(['Title', 'Year', 'Director(s)', 'Runtime',
-                         'Fans', 'Watched', '% Fans out of Watched', 'URL'])
+        writer.writerow(['Title', 'Year', 'Director(s)', 'Runtime', 'Fans', 
+                         'Watched', '% Fans out of Watched', 'TMDB ID', 'URL'])
         writer.writerows(sortedlist)
+
+### Creates CSV file in Letterboxd import format 
+### (https://letterboxd.com/about/importing-data/)
+def prepare_import():
+    with open(OUTPUT_FILE, newline='') as infile, open(IMPORT_FILE, 'w', newline='') as outfile:
+        filmout = csv.writer(outfile, quoting=csv.QUOTE_ALL)
+        filmout.writerow(["tmdbID","Title","Year","Directors"])
+        filmin = csv.reader(infile, delimiter=',', quotechar='"')
+        next(filmin)
+        for row in filmin:
+            filmout.writerow([row[7],row[0],row[1],row[2]])        
 
 def main():
     start = time.time()
     len = write_to_csv()
     sort_csv()
+    prepare_import()
     end = time.time()
     total_time = end - start
     print("Execution took %f seconds, which is %f seconds per film."
