@@ -36,8 +36,12 @@ def get_urls(page, page_num):
 def get_info(url):
 
     # First scrape for film info from Letterboxd page.
-    r = requests.get(url, allow_redirects=False)
-    soup = BeautifulSoup(r.text, 'html.parser')
+    try:
+        r = requests.get(url, allow_redirects=False)
+        soup = BeautifulSoup(r.text, 'html.parser')
+        r.close()
+    except:
+        print("Unable to connect to: " + r.url)
 
     # Use unidecode to handle annoying unicode issues with foreign words.
     try:
@@ -62,8 +66,6 @@ def get_info(url):
         director = ""
         runtime = 0
         tmdb = 0
-        
-    r.close()
     
     # Special cases
     if url == "http://letterboxd.com/film/the-up-series/":
@@ -71,20 +73,35 @@ def get_info(url):
         year = 1964
         director = "Michael Apted"
         runtime = 769
+        tmdb = 95051
+    if url == "http://letterboxd.com/film/the-iron-giant/":
+        title = "The Iron Giant: Signature Edition"
+        year = 2015
+        director = "Brad Bird"
+        runtime = 100
+        tmdb = 418118
     if "Joel Coen" in director:
         director = "Joel Coen, Ethan Coen"
 
-    # Next, grab number of fans and watched from Letterboxd page
-    lbd_url = url.split('/')[4]
-    r = requests.get("http://letterboxd.com/csi/film/" + lbd_url + "/sidebar-viewings/")
-    r_soup = BeautifulSoup(r.text, 'html.parser')
-    s = r_soup.find_all('a')
-    r.close()
-
+    # Next, grab number of watched from Letterboxd page
+    try:
+        lbd_url = url.split('/')[4]
+        r = requests.get("http://letterboxd.com/csi/film/" + lbd_url + "/sidebar-viewings/")
+        r_soup = BeautifulSoup(r.text, 'html.parser')
+        s = r_soup.find_all('a')
+        r.close()
+    except:
+        print("Unable to connect to watched page for " + r.url)
+    
     try:
         watched_text = s[0].text
-        dummy = re.findall('\d+', watched_text.replace(',', ''))
-        watched = int(dummy[0])
+        
+        # If Letterboxd displays watched with "k" then we must search a different page
+        if 'k' in s[0].text:        
+            watched = get_info_k(lbd_url)
+        else:
+            dummy = re.findall('\d+', watched_text.replace(',', ''))
+            watched = int(dummy[0])
     except:
         print("Error in finding number of watched for " + url)
         watched = 0
@@ -103,6 +120,27 @@ def get_info(url):
     else:
         percent = 0
     return [title, year, director, runtime, fans, watched, percent, tmdb]
+    
+## Gathers number of people who watched a film, when there was a 'k'
+## in the number posted on the main Letterboxd page sidebar.
+def get_info_k(lbd_url):
+    try:
+        r = requests.get("http://letterboxd.com/film/" + lbd_url + "/members/")
+        r_soup = BeautifulSoup(r.text, 'html.parser')
+        s = r_soup.find('li', 'selected ').find('a')
+        r.close()
+    except:
+        print("Unable to connect to members page for " + r.url)
+
+    try:
+        watched_text = s['title']
+        dummy = re.findall('\d+', watched_text.replace(',', ''))
+        watched = int(dummy[0])
+    except:
+        print("Error in finding number of watched for " + url)
+        watched = 0
+       
+    return watched
     
 ### Writes film info to csv and returns number of films processed.
 def write_to_csv():
