@@ -1,6 +1,6 @@
 #! python3
 # 
-# scraper3.py: Scrapes Letterboxd for films with highest proportion of 
+# scraper4.py: Scrapes Letterboxd for films with highest proportion of 
 # people who watched it who is a fan of it. Throws all film info into
 # an unsorted csv, which is then imported into Excel and sorted there.
 
