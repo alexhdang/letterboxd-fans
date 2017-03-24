@@ -17,8 +17,8 @@ from unidecode import unidecode
 OUTPUT_FILE = 'fans_' + time.strftime("%m-%d-%Y") + '_' + time.strftime("%H-%M-%S") + '.csv'
 IMPORT_FILE = OUTPUT_FILE[:-4] + '_import' + OUTPUT_FILE[-4:]
 PAGE_COUNT = 10
-PAGES = ['http://letterboxd.com/films/ajax/popular/size/small/page/',
-         'http://letterboxd.com/films/ajax/by/rating/size/small/page/']
+PAGES = ['https://letterboxd.com/films/ajax/popular/size/small/page/',
+         'https://letterboxd.com/films/ajax/by/rating/size/small/page/']
 
 ### Gathers urls of films from a page of most popular and highest rated
 def get_urls(page, page_num):
@@ -26,7 +26,7 @@ def get_urls(page, page_num):
     r = requests.get(page + str(page_num) + '/')
     soup = BeautifulSoup(r.text, 'html.parser')
     for link in soup.find("ul").find_all('a'):
-        urls.append("http://letterboxd.com" + link.get('href'))
+        urls.append("https://letterboxd.com" + link.get('href'))
     print(str(len(urls))+' films found on '+page+str(page_num))
     r.close()
     return urls
@@ -68,25 +68,31 @@ def get_info(url):
         tmdb = 0
     
     # Special cases
-    if url == "http://letterboxd.com/film/the-up-series/":
+    if url == "https://letterboxd.com/film/the-up-series/":
         title = "The Up Series"
         year = 1964
         director = "Michael Apted"
         runtime = 769
         tmdb = 95051
-    if url == "http://letterboxd.com/film/the-iron-giant/":
+    if url == "https://letterboxd.com/film/the-iron-giant/":
         title = "The Iron Giant: Signature Edition"
         year = 2015
         director = "Brad Bird"
         runtime = 100
         tmdb = 418118
+    if url == "https://letterboxd.com/film/uno-the-movie/":
+        title = "Uno: The Movie"
+        year = 2016
+        director = "Rooster Teeth"
+        runtime = 164
+        tmdb = 428737
     if "Joel Coen" in director:
         director = "Joel Coen, Ethan Coen"
 
     # Next, grab number of watched from Letterboxd page
     try:
         lbd_url = url.split('/')[4]
-        r = requests.get("http://letterboxd.com/csi/film/" + lbd_url + "/sidebar-viewings/")
+        r = requests.get("https://letterboxd.com/csi/film/" + lbd_url + "/sidebar-viewings/")
         r_soup = BeautifulSoup(r.text, 'html.parser')
         s = r_soup.find_all('a')
         r.close()
@@ -125,7 +131,7 @@ def get_info(url):
 ## in the number posted on the main Letterboxd page sidebar.
 def get_info_k(lbd_url):
     try:
-        r = requests.get("http://letterboxd.com/film/" + lbd_url + "/members/")
+        r = requests.get("https://letterboxd.com/film/" + lbd_url + "/members/")
         r_soup = BeautifulSoup(r.text, 'html.parser')
         s = r_soup.find('li', 'selected ').find('a')
         r.close()
@@ -196,8 +202,8 @@ def main():
     prepare_import()
     end = time.time()
     total_time = end - start
-    print("Execution took %f seconds, which is %f seconds per film."
-          % (total_time, total_time/len))
+    print("Execution took %.2f sec (%.2f min), or %.2f seconds per film."
+          % (total_time, total_time/60, total_time/len))
 
 if __name__ == '__main__':
     main()
